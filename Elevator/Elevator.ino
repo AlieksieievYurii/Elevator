@@ -50,6 +50,10 @@ void loop()
   
   registerFloor();
   writeTurn();
+
+  for(int i = 0; i < N; i++)
+    Serial.print(arrayFloor[i]);
+  Serial.println();  
    
   if(waitForNext)
     nextFloor();
@@ -145,7 +149,7 @@ void writeTurn()
     return;
   }
   
-  if(localCalledFloorExpected != 0)
+  if(localCalledFloorExpected != 0 && localCalledFloorExpected != executableFloor)
   {
     for (short i = 0; i < 4;i++)
       if (localCalledFloorExpected == arrayFloor[i])
