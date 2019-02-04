@@ -13,12 +13,12 @@
 
 ///////COMANDS FOR PANEL_CONTROL ///////
 #define ELEVATOR_IS_ERIVED 1
+#define OPEN_THE_DOOR 2
 
 unsigned short stepsPerRevolution = 64;
 Stepper myStepper(stepsPerRevolution, 8,10,9,11);
 LiquidCrystal_I2C lcd(0x27,16,2);
 
-short calledFloorExpected;
 short registeredFloor;
 short arrayFloor[N] = {-1,-1,-1,-1};
 short ledFloor[N] = {7,6,5,4};
@@ -26,7 +26,7 @@ short executableFloor = -1; // -1 it means not called floors
 boolean canWork = false;
 boolean landed = false;
 boolean waitForNext = true;
-short flagMoving = MOVING_UP;
+short flagMoving = 0;
 
 void setup() {
    Serial.begin(9600);
@@ -46,35 +46,30 @@ void setup() {
 }
 void loop() 
 {
-  readComFromPanelControl();
-  if(!canWork)
-  {
-    lcd.setCursor(0,1);
-    lcd.print("Door is opened!");
-    delay(100);
-    return;
-  }
-    
+  readComFromPanelControl();   
   
- registerFloor();
- writeTurn();
+  registerFloor();
+  writeTurn();
+   
   if(waitForNext)
     nextFloor();
-  moveElevator();
-  delay(10);  
+ 
+  if(executableFloor != -1 && canWork)
+    moveElevator();
+  delay(10);
 }
 
 void nextFloor()
-{
-  SortArray(arrayFloor); 
-  
-  if(arrayFloor[0] != -1)
-  {
+{ 
     executableFloor = arrayFloor[0];
-    swipeArray(arrayFloor);
-    landed = false;
-    waitForNext = false;
-  }
+
+    if(executableFloor != -1)
+    {
+      swipeArray(arrayFloor);
+      landed = false;
+      waitForNext = false;
+    }
+
 }
 
 void swipeArray(short * arrayFloor){
@@ -99,10 +94,6 @@ void SortArray(short * arrayFloor)
 
 void moveElevator()
 {
-
-  if(executableFloor == -1)
-    return;
-
     
   if(executableFloor > registeredFloor)
   {
@@ -130,11 +121,13 @@ void moveElevator()
 
 void ElevatorErrived(short errivedOnFloor)
 {
-  landed = true;
+
   executableFloor = -1;
-  waitForNext = true;
   turnOffLedOnFloor(errivedOnFloor);
   sendCommandToPanelControl(ELEVATOR_IS_ERIVED);
+  flagMoving = 0;
+  waitForNext = true;
+  landed = true;
 }
 
 void turnOffLedOnFloor(short errivedOnFloor)
@@ -144,20 +137,25 @@ void turnOffLedOnFloor(short errivedOnFloor)
 
 void writeTurn()
 {
-  calledFloorExpected = calledFloor();
+  short localCalledFloorExpected = calledFloor();
 
- 
-  if(calledFloorExpected != 0)
+  if( localCalledFloorExpected == registeredFloor)
+  {
+    sendCommandToPanelControl(OPEN_THE_DOOR);
+    return;
+  }
+  
+  if(localCalledFloorExpected != 0)
   {
     for (short i = 0; i < 4;i++)
-      if (calledFloorExpected == arrayFloor[i])
+      if (localCalledFloorExpected == arrayFloor[i])
           return;
           
       for (short i = 0; i < 4; i++)
         if (arrayFloor[i] == -1)
         {
-          arrayFloor[i] = calledFloorExpected;
-          digitalWrite(ledFloor[abs(calledFloorExpected)-1],HIGH);// Turn on led on floor which called
+          arrayFloor[i] = localCalledFloorExpected;
+          digitalWrite(ledFloor[abs(localCalledFloorExpected)-1],HIGH);// Turn on led on floor which called
           return;
         }
   }
@@ -203,38 +201,33 @@ void moveDown()
 {
   myStepper.step(-50);
 }
-/*
-short onFloor()
-{
-  unsigned int value = analogRead(FLOOR_SENSORS);
-  if(value >= 221 && value <= 231) return 4;
-  else if(value >= 300 && value <= 310) return 3;
-  else if(value >= 395 && value <= 405) return 2;
-  else if(value >= 691 && value <= 701) return 1;
-  else return 0;
-}
-*/
 
 void registerFloor()
 {
   unsigned int value = analogRead(FLOOR_SENSORS);
-  if(value >= 221 && value <= 231) registeredFloor = 4;
-  else if(value >= 300 && value <= 310) registeredFloor = 3;
-  else if(value >= 395 && value <= 405) registeredFloor = 2;
-  else if(value >= 691 && value <= 701) registeredFloor = 1;
-  if(value != 0)
+  short bufRegisteredFloor = 0;
+  if(value >= 221 && value <= 231) bufRegisteredFloor = 4;
+  else if(value >= 300 && value <= 310) bufRegisteredFloor = 3;
+  else if(value >= 395 && value <= 405) bufRegisteredFloor = 2;
+  else if(value >= 691 && value <= 701) bufRegisteredFloor = 1;
+  
+  if(bufRegisteredFloor != 0 && bufRegisteredFloor != registeredFloor)
+  {
+    registeredFloor = bufRegisteredFloor;
     printFloor();
+  }
 }
 
 short calledFloor()
 {
-  unsigned int value = analogRead(CALL_BUTTONS);
+  short value = analogRead(CALL_BUTTONS);
+
   if(value >= 85 && value <= 95) return 4;
   else if(value >= 333 && value <= 345) return 3;
   else if(value >= 175 && value <= 185) return 3;
   else if(value >= 505 && value <= 515) return 2;
   else if(value >= 402 && value <= 412) return 2;  
-  else if(value >= 695 && value <= 705) return 1;
+  else if(value >= 690 && value <= 705) return 1;
   else return 0;
   
 }
@@ -261,13 +254,21 @@ void printInf()
 
 void sendCommandToPanelControl(short command)
 {
+  char str[2] = {'0','0'};
   switch(command)
   {
     case ELEVATOR_IS_ERIVED:
-        char str[2] = {'e','f'};//e - elevator   f - finished
-        Serial.write(str,2);
+      str[0] = 'e';
+      str[1] = 'f'; 
+        break;
+        
+    case OPEN_THE_DOOR:
+      str[0] = 'e';
+      str[1] = 'o'; 
         break;
   }
+
+  Serial.write(str,2);
 }
 
 void readComFromPanelControl()
