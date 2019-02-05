@@ -5,7 +5,7 @@
 #define CALL_BUTTONS A1
 #define FLOOR_SENSORS A0
 #define DEFAULT_SPEED 300
-#define SLOW_SPEED 120
+#define SLOW_SPEED 150
 #define N 4
 #define CALIBRATION_SENSOR 2
 #define MOVING_UP 1
@@ -13,7 +13,6 @@
 
 ///////COMANDS FOR PANEL_CONTROL ///////
 #define ELEVATOR_IS_ERIVED 1
-#define OPEN_THE_DOOR 2
 
 unsigned short stepsPerRevolution = 64;
 Stepper myStepper(stepsPerRevolution, 8,10,9,11);
@@ -27,6 +26,9 @@ boolean canWork = false;
 boolean landed = false;
 boolean waitForNext = true;
 short flagMoving = 0;
+
+
+boolean flagPressSameBtn = true;
 
 void setup() {
    Serial.begin(9600);
@@ -50,16 +52,13 @@ void loop()
   
   registerFloor();
   writeTurn();
-
-  for(int i = 0; i < N; i++)
-    Serial.print(arrayFloor[i]);
-  Serial.println();  
    
   if(waitForNext)
     nextFloor();
  
   if(executableFloor != -1 && canWork)
     moveElevator();
+    
   delay(10);
 }
 
@@ -140,17 +139,27 @@ void turnOffLedOnFloor(short errivedOnFloor)
 }
 
 void writeTurn()
-{
+{ 
   short localCalledFloorExpected = calledFloor();
 
-  if( localCalledFloorExpected == registeredFloor)
+  ///////if we call the elevator on floor wheme we are, elevator will just send command to the cabin for opening door
+  if( localCalledFloorExpected == registeredFloor && flagPressSameBtn && executableFloor == -1)
   {
-    sendCommandToPanelControl(OPEN_THE_DOOR);
+    digitalWrite(ledFloor[localCalledFloorExpected - 1],HIGH);
+    delay(10);
+    digitalWrite(ledFloor[localCalledFloorExpected - 1],LOW);
+    sendCommandToPanelControl(ELEVATOR_IS_ERIVED);
+    flagPressSameBtn = false;
     return;
   }
-  
-  if(localCalledFloorExpected != 0 && localCalledFloorExpected != executableFloor)
+
+  ///here we create queue calling the elevator
+  if(localCalledFloorExpected != 0 
+      && localCalledFloorExpected != executableFloor 
+       && localCalledFloorExpected != registeredFloor)
   {
+    flagPressSameBtn = true;
+    
     for (short i = 0; i < 4;i++)
       if (localCalledFloorExpected == arrayFloor[i])
           return;
@@ -190,14 +199,40 @@ void moveUp()
 void moveUpMiddle()
 {
   myStepper.setSpeed(SLOW_SPEED);
-  myStepper.step(900);
+
+  switch(registeredFloor)
+  {
+    case 2:
+      myStepper.step(950);
+      break;
+    case 3:
+      myStepper.step(900);
+      break;
+    case 4:
+      myStepper.step(900);
+      break;
+  }
   myStepper.setSpeed(DEFAULT_SPEED);
 }
 
 void moveDownMiddle()
 {
   myStepper.setSpeed(SLOW_SPEED);
-  myStepper.step(-650);
+  switch(registeredFloor)
+  {
+    case 1:
+      myStepper.step(-700);
+      break;
+    case 2:
+      myStepper.step(-950);
+      break;
+    case 3:
+      myStepper.step(-950);
+      break;
+    case 4:
+      myStepper.step(-650);
+      break;
+  }
   myStepper.setSpeed(DEFAULT_SPEED);
 }
 
@@ -263,13 +298,10 @@ void sendCommandToPanelControl(short command)
   {
     case ELEVATOR_IS_ERIVED:
       str[0] = 'e';
-      str[1] = 'f'; 
+      str[1] = 'f';
         break;
-        
-    case OPEN_THE_DOOR:
-      str[0] = 'e';
-      str[1] = 'o'; 
-        break;
+
+    case     
   }
 
   Serial.write(str,2);
@@ -289,5 +321,11 @@ void readComFromPanelControl()
    if(str[0] == 'd' && str[1] == 'o')
     canWork = false;
    else if(str[0] == 'd' && str[1] == 'c')
+   {
     canWork = true;
+    flagPressSameBtn = true;
+   }else if(str[0] == 'c')
+   {
+      //calledFloorFromCabine = str[1] - '0';
+   }
 }
