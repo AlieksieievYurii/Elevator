@@ -2,30 +2,42 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define CALL_BUTTONS A1
-#define FLOOR_SENSORS A0
-#define DEFAULT_SPEED 300
-#define SLOW_SPEED 150
-#define N 4
-#define CALIBRATION_SENSOR 2
-#define MOVING_UP 1
-#define MOVING_DOWN -1
+/////INIT hardware part////
+#define CALL_BUTTONS A1    //--------Here is connection buttons of colling elevator
+#define FLOOR_SENSORS A0   //--------Here is connection sensors which are localed on floors
+#define CALIBRATION_SENSOR 2 //------Here is connected button for instalation the elevator on first floor
+///////////////////////////
+#define DEFAULT_SPEED 300 // Default speed of elevator
+#define SLOW_SPEED 150  // Default speed of elevator when it is landing
+#define N 4 //Number of floor
+
+////////Flags of moving the elevator//////////
+#define MOVING_UP 1 //This flag means that the elevator is moving up
+#define MOVING_DOWN -1 //This flag means that the elevator is moving down
+#define NOT_MOVING 0
+/////////////////////////////////////////////
+
+#define NOT -1
 
 ///////COMANDS FOR PANEL_CONTROL ///////
 #define ELEVATOR_IS_ERIVED 1
 
+////////////////Init motor///////////////////////
 unsigned short stepsPerRevolution = 64;
-Stepper myStepper(stepsPerRevolution, 8,10,9,11);
-LiquidCrystal_I2C lcd(0x27,16,2);
+Stepper myStepper(stepsPerRevolution, 8,10,9,11); // Conected Step motor
+/////////////////////////////////////////////////
+
+LiquidCrystal_I2C lcd(0x27,16,2);//Connected LDC display
 
 short registeredFloor;
 short arrayFloor[N] = {-1,-1,-1,-1};
 short ledFloor[N] = {7,6,5,4};
-short executableFloor = -1; // -1 it means not called floors
+short executableFloor = NOT; // -1 it means not called floors
 boolean canWork = false;
 boolean landed = false;
 boolean waitForNext = true;
-short flagMoving = 0;
+short flagMoving = NOT_MOVING;
+short calledFloorFromCabine = NOT;
 
 
 boolean flagPressSameBtn = true;
@@ -52,11 +64,11 @@ void loop()
   
   registerFloor();
   writeTurn();
-   
-  if(waitForNext)
-    nextFloor();
+
+  if(waitForNext && canWork)
+    nextFloor(); 
  
-  if(executableFloor != -1 && canWork)
+  if(executableFloor != NOT && canWork)
     moveElevator();
     
   delay(10);
@@ -64,9 +76,27 @@ void loop()
 
 void nextFloor()
 { 
+  
+  if(calledFloorFromCabine != NOT && calledFloorFromCabine != registeredFloor )
+  {
+    executableFloor = calledFloorFromCabine;
+    landed = false;
+    waitForNext = false;
+    return;
+  }
+
+  if(arrayFloor[0] == NOT)
+  {
+    for(int i = 0; i < N; i++)
+    {
+      swipeArray(arrayFloor);
+      if(arrayFloor[0] != NOT)
+        break;
+    }
+  }
     executableFloor = arrayFloor[0];
 
-    if(executableFloor != -1)
+    if(executableFloor != NOT)
     {
       swipeArray(arrayFloor);
       landed = false;
@@ -78,44 +108,28 @@ void nextFloor()
 void swipeArray(short * arrayFloor){
   for(int i = 0; i < N - 1; i++)
     arrayFloor[i] = arrayFloor[i+1];
-  arrayFloor[N-1] = -1;  
-}
-
-void SortArray(short * arrayFloor)
-{
-  if(flagMoving == MOVING_UP)
-    return;
-  for(int i = 0; i < N; i++)
-    for(int j = 0; j < N-1; j++)   
-       if(arrayFloor[j] < arrayFloor[j+1])//4,3,2,1...
-       {
-          short bufferNum = arrayFloor[j];
-          arrayFloor[j] = arrayFloor[j+1];
-          arrayFloor[j+1] = bufferNum;   
-       }
+  arrayFloor[N-1] = NOT;  
 }
 
 void moveElevator()
 {
-    
-  if(executableFloor > registeredFloor)
-  {
-    moveUp();
-    flagMoving = MOVING_UP;
-  }
-  
-  if(executableFloor == registeredFloor && !landed)
+
+   if(executableFloor == registeredFloor && !landed)
   {
     if(flagMoving == MOVING_UP)
       moveUpMiddle();
     else if(flagMoving == MOVING_DOWN)
        moveDownMiddle();
        
-    ElevatorErrived(executableFloor);    
-         
+    ElevatorErrived(executableFloor);
+    return;    
   }
-
-  if(executableFloor < registeredFloor)
+    
+  if(executableFloor > registeredFloor)
+  {
+    moveUp();
+    flagMoving = MOVING_UP;
+  }else if(executableFloor < registeredFloor)
   {
     moveDown();
     flagMoving = MOVING_DOWN;
@@ -125,12 +139,21 @@ void moveElevator()
 void ElevatorErrived(short errivedOnFloor)
 {
 
-  executableFloor = -1;
+  for(short i = 0; i < N; i++)
+    if(arrayFloor[i] == errivedOnFloor)
+        arrayFloor[i] = NOT;
+
+  executableFloor = NOT;
   turnOffLedOnFloor(errivedOnFloor);
   sendCommandToPanelControl(ELEVATOR_IS_ERIVED);
-  flagMoving = 0;
+  flagMoving = NOT_MOVING;
   waitForNext = true;
+  
+  if(calledFloorFromCabine == registeredFloor)
+    calledFloorFromCabine = NOT;
+    
   landed = true;
+  canWork = false;
 }
 
 void turnOffLedOnFloor(short errivedOnFloor)
@@ -143,23 +166,25 @@ void writeTurn()
   short localCalledFloorExpected = calledFloor();
 
   ///////if we call the elevator on floor wheme we are, elevator will just send command to the cabin for opening door
-  if( localCalledFloorExpected == registeredFloor && flagPressSameBtn && executableFloor == -1)
+  if( (localCalledFloorExpected == registeredFloor && flagPressSameBtn && executableFloor == NOT) || 
+      (calledFloorFromCabine == registeredFloor && executableFloor == NOT && flagPressSameBtn ))
   {
     digitalWrite(ledFloor[localCalledFloorExpected - 1],HIGH);
     delay(10);
     digitalWrite(ledFloor[localCalledFloorExpected - 1],LOW);
     sendCommandToPanelControl(ELEVATOR_IS_ERIVED);
+    calledFloorFromCabine = NOT;
     flagPressSameBtn = false;
     return;
   }
 
   ///here we create queue calling the elevator
-  if(localCalledFloorExpected != 0 
-      && localCalledFloorExpected != executableFloor 
-       && localCalledFloorExpected != registeredFloor)
+  if(localCalledFloorExpected != NOT)
   {
-    flagPressSameBtn = true;
-    
+    if(executableFloor == NOT && localCalledFloorExpected == registeredFloor)
+      return;
+
+    //if called floor is in queue, it will not add to queue again
     for (short i = 0; i < 4;i++)
       if (localCalledFloorExpected == arrayFloor[i])
           return;
@@ -183,9 +208,9 @@ void calibration()
   while(!digitalRead(CALIBRATION_SENSOR))
     myStepper.step(-10);
     
-    
   for (int i = 0; i < N; i++)
     digitalWrite(ledFloor[i], LOW);
+    
   registeredFloor = 1;  
   lcd.clear();
   lcd.print("Floor:1");
@@ -267,7 +292,7 @@ short calledFloor()
   else if(value >= 505 && value <= 515) return 2;
   else if(value >= 402 && value <= 412) return 2;  
   else if(value >= 690 && value <= 705) return 1;
-  else return 0;
+  else return NOT;
   
 }
 
@@ -299,9 +324,7 @@ void sendCommandToPanelControl(short command)
     case ELEVATOR_IS_ERIVED:
       str[0] = 'e';
       str[1] = 'f';
-        break;
-
-    case     
+        break;    
   }
 
   Serial.write(str,2);
@@ -326,6 +349,6 @@ void readComFromPanelControl()
     flagPressSameBtn = true;
    }else if(str[0] == 'c')
    {
-      //calledFloorFromCabine = str[1] - '0';
+      calledFloorFromCabine = str[1] - '0';
    }
 }
