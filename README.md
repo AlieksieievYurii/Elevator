@@ -15,3 +15,5 @@ is the same as the real elevator. The elevator has 4 floors, a cabin and a panel
     * Driver module ULN2003 for step mottor
     * Step motor 28-BYJ48
     * Buzzer
+## Schematics    
+<img src="Inf/SCHEMATICS.jpg" width="700">
