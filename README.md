@@ -29,7 +29,7 @@ is the same as the real elevator. The elevator has 4 floors, a cabin and a panel
  
  * **Motor** - For this project I use a step motor 28-BYJ48 with connected by driver module ULN2003
  
- * **Display** - I connected the Lcd display 16x2 by module I2C
+ * **Display** - I connected the Lcd display 16x2 by module I2C. The display shows the floor at the momentю
  
  * **Servor** - The servo drive is used to open and close the door
  
