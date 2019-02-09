@@ -48,14 +48,14 @@ void setup() {
   pinMode(FLOOR_SENSORS,INPUT);
   pinMode(CALIBRATION_SENSOR, INPUT);
   
-  for(int i = 0; i < N; i++)
+  for(byte i = 0; i < N; i++)
     pinMode(ledFloor[i],OUTPUT);
   
   myStepper.setSpeed(DEFAULT_SPEED);
 
   lcd.begin();                            
   lcd.backlight();                     
-  //printInf();
+  printInf();
   calibration();
 }
 void loop() 
@@ -87,7 +87,7 @@ void nextFloor()
 
   if(arrayFloor[0] == NOT)
   {
-    for(int i = 0; i < N; i++)
+    for(byte i = 0; i < N; i++)
     {
       swipeArray(arrayFloor);
       if(arrayFloor[0] != NOT)
@@ -106,7 +106,7 @@ void nextFloor()
 }
 
 void swipeArray(short * arrayFloor){
-  for(int i = 0; i < N - 1; i++)
+  for(byte i = 0; i < N - 1; i++)
     arrayFloor[i] = arrayFloor[i+1];
   arrayFloor[N-1] = NOT;  
 }
@@ -139,7 +139,7 @@ void moveElevator()
 void ElevatorErrived(short errivedOnFloor)
 {
 
-  for(short i = 0; i < N; i++)
+  for(byte i = 0; i < N; i++)
     if(arrayFloor[i] == errivedOnFloor)
         arrayFloor[i] = NOT;
 
@@ -164,7 +164,7 @@ void turnOffLedOnFloor(short errivedOnFloor)
 void writeTurn()
 { 
   short localCalledFloorExpected = calledFloor();
-
+ 
   ///////if we call the elevator on floor wheme we are, elevator will just send command to the cabin for opening door
   if( (localCalledFloorExpected == registeredFloor && flagPressSameBtn && executableFloor == NOT) || 
       (calledFloorFromCabine == registeredFloor && executableFloor == NOT && flagPressSameBtn ))
@@ -185,11 +185,11 @@ void writeTurn()
       return;
 
     //if called floor is in queue, it will not add to queue again
-    for (short i = 0; i < 4;i++)
+    for (byte i = 0; i < 4;i++)
       if (localCalledFloorExpected == arrayFloor[i])
           return;
           
-      for (short i = 0; i < 4; i++)
+      for (byte i = 0; i < 4; i++)
         if (arrayFloor[i] == -1)
         {
           arrayFloor[i] = localCalledFloorExpected;
@@ -200,7 +200,7 @@ void writeTurn()
 }
 void calibration()
 {
-  for (int i = 0; i < N; i++)
+  for (byte i = 0; i < N; i++)
     digitalWrite(ledFloor[i], HIGH);
   lcd.setCursor(0,0); 
   lcd.print("  CALIBRATION...");
@@ -208,7 +208,7 @@ void calibration()
   while(!digitalRead(CALIBRATION_SENSOR))
     myStepper.step(-10);
     
-  for (int i = 0; i < N; i++)
+  for (byte i = 0; i < N; i++)
     digitalWrite(ledFloor[i], LOW);
     
   registeredFloor = 1;  
@@ -268,7 +268,7 @@ void moveDown()
 
 void registerFloor()
 {
-  unsigned int value = analogRead(FLOOR_SENSORS);
+  unsigned short value = analogRead(FLOOR_SENSORS);
   short bufRegisteredFloor = 0;
   if(value >= 221 && value <= 231) bufRegisteredFloor = 4;
   else if(value >= 300 && value <= 310) bufRegisteredFloor = 3;
@@ -291,7 +291,7 @@ short calledFloor()
   else if(value >= 175 && value <= 185) return 3;
   else if(value >= 505 && value <= 515) return 2;
   else if(value >= 402 && value <= 412) return 2;  
-  else if(value >= 690 && value <= 705) return 1;
+  else if(value >= 670 && value <= 705) return 1;
   else return NOT;
   
 }
@@ -309,10 +309,10 @@ void printInf()
   lcd.print("    Elevalor");
   lcd.setCursor(0,1);
   lcd.print("Y.Alieksieiev");
-  delay(2000);
-  lcd.setCursor(0,1);
-  lcd.println("S.Michalewski   ");
-  delay(2000);
+  delay(3000);
+  //lcd.setCursor(0,1);
+  //lcd.println("S.Michalewski   ");
+  //delay(2000);
   lcd.clear();
 }
 
@@ -335,7 +335,7 @@ void readComFromPanelControl()
   if(!Serial.available())
     return;
 
-    int i = 0;
+    byte i = 0;
     char str[2] = {'0','0'};
     delay(100);
     while(Serial.available())
