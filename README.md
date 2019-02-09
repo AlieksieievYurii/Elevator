@@ -1,7 +1,9 @@
 # Elevator
 ## Intro
 The project "Elevator" is constructed on platform Arduino. I builded the elevator the which principle of operation
-is the same as the real elevator. The elevator has 4 floors, a cabin and a panel control. 
+is the same as the real elevator. The elevator has 4 floors, a cabin and a panel control.
+
+[![Watch the video](Inf/link_on_video.jpg)](https://www.youtube.com/watch?v=cfQdmKm0qJA)
 
 ## Components
  Here are the things I use:
@@ -34,5 +36,17 @@ is the same as the real elevator. The elevator has 4 floors, a cabin and a panel
  * **Servor** - The servo drive is used to open and close the door
  
  * **Buzzer** - It is used to signal that the Elevator has arrived
+ 
+ ## Codes
+ 
+  * Code of elevator:
+  https://github.com/AlieksieievYurii/Elevator/blob/master/Elevator/Elevator.ino
+  
+  Also you have to download the library <a href="https://github.com/fdebrabander/Arduino-LiquidCrystal-I2C-library/blob/master/LiquidCrystal_I2C.h">LiquidCrystal_I2C</a> for lcd display.
+  
+  * Code of the cabin:
+  https://github.com/AlieksieievYurii/Elevator/blob/master/PanelControll/PanelControll.ino
+  
+ 
  
  
