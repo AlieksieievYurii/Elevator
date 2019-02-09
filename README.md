@@ -6,7 +6,7 @@ is the same as the real elevator. The elevator has 4 floors, a cabin and a panel
 [![Watch the video](Inf/link_on_video.jpg)](https://www.youtube.com/watch?v=cfQdmKm0qJA)
 
 ## Components
- Here are the things I use:
+ Here are the components I use:
  
     * Arduino uno
     * Arduino nano
