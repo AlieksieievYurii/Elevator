@@ -28,7 +28,7 @@ void setup() {
   Serial.begin(9600);
   closeDoor();
 
-  for(int i = 0; i < 5; i++)
+  for(byte i = 0; i < 5; i++)
   {
     digitalWrite(SIGNAL_PIN,HIGH);
     delay(100);
@@ -91,7 +91,7 @@ void readSerial(char str[2])
   if(Serial.available())
   {
     delay(100);
-    int i = 0;
+    byte i = 0;
     while(Serial.available() && i<2)
       str[i++] = Serial.read();
   }   
